@@ -63,12 +63,12 @@ for epoch in range(NUM_EPOCHS):
 
     test_loss = 0
     test_acc = 0
-    # for step, (X, target) in enumerate(test_dataloader):
-    #     X = X.to(device)
-    #     target = target.to(device)
-    #     Y = model(X)
-    #     test_loss += loss(Y, F.one_hot(target, num_classes=91)) / len(test_data)
-    #     test_acc += (torch.argmax(Y, dim=1) == target).sum() / len(test_data)
+    for step, (X, target) in enumerate(test_dataloader):
+        X = X.to(device)
+        target = target.to(device)
+        Y = model(X)
+        test_loss += loss(Y, F.one_hot(target, num_classes=91)) / len(test_data)
+        test_acc += (torch.argmax(Y, dim=1) == target).sum() / len(test_data)
 
 
     print(f'Train total loss: {train_total_loss}')

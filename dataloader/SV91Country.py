@@ -107,7 +107,7 @@ class SV91Country(Dataset):
         self.train = train
         self.total_samples = 16566 - 1865
         self.train_split_idx = int(0.9 * self.total_samples)
-        self.countries = torch.asarray(list(map(lambda countryCode: COUNTRY_TO_IDX[countryCode], open(self.path + 'countries.txt').read().split(','))))
+        self.countries = torch.tensor(list(map(lambda countryCode: COUNTRY_TO_IDX[countryCode], open(self.path + 'countries.txt').read().split(','))))
 
     def __len__(self):
         return self.train_split_idx if self.train else self.total_samples - self.train_split_idx
