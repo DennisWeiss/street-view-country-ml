@@ -7,6 +7,7 @@ from model.CountryClassifier import CountryClassifier
 from dataloader.SV6Country import SV6Country
 from dataloader.SV91Country import SV91Country
 from model.CountryClassifierV2 import CountryClassifierV2
+from model.CountryClassifierV3 import CountryClassifierV3
 
 USE_CUDA_IF_AVAILABLE = True
 
@@ -30,14 +31,14 @@ countries = ['ALB', 'ASM', 'AND', 'ARG', 'AUS', 'BGD', 'BEL', 'BMU', 'BTN', 'BOL
 
 transform = torchvision.transforms.Compose([
     torchvision.transforms.CenterCrop((400, 640)),
-    torchvision.transforms.Resize((200, 320))
+    # torchvision.transforms.Resize((200, 320))
 ])
 
-model = CountryClassifierV2().to(device)
-model.load_state_dict(torch.load('snapshots/model_91country_ce_lr1e-3_epoch15'))
+model = CountryClassifierV3().to(device)
+model.load_state_dict(torch.load('snapshots/model_91country_ce_v3_lr3e-4_epoch25'))
 
-# data = torch.utils.data.Subset(SV91Country(train=False, transform=transform), list(range(470, 478)))
-data = SV91Country(train=False, transform=transform)
+data = torch.utils.data.Subset(SV91Country(train=False, transform=transform), list(range(500, 508)))
+# data = SV91Country(train=False, transform=transform)
 data_loader = torch.utils.data.DataLoader(data, batch_size=16)
 
 
@@ -51,16 +52,16 @@ def show_best_estimates(y):
 test_acc = 0
 
 for step, (X, target) in enumerate(data_loader):
-    # for i in range(X.size(dim=0)):
-    #     plt.imshow(F.to_pil_image(X[i]))
-    #     plt.show()
+    for i in range(X.size(dim=0)):
+        plt.imshow(F.to_pil_image(X[i]))
+        plt.show()
     X = X.to(device)
     target = target.to(device)
     Y = model(X)
     test_acc += (torch.argmax(Y, dim=1) == target).sum() / len(data)
-    # for i in range(X.size(dim=0)):
-    #     print(countries[torch.argmax(Y[i])] + " - " + countries[target[i]])
-    #     for country, certainty in show_best_estimates(Y[i])[0:10]:
-    #         print(f'{country}: {100 * certainty:.1f}%')
+    for i in range(X.size(dim=0)):
+        print(countries[torch.argmax(Y[i])] + " - " + countries[target[i]])
+        for country, certainty in show_best_estimates(Y[i])[0:10]:
+            print(f'{country}: {100 * certainty:.1f}%')
 
 print(f'Test acc: {test_acc}')

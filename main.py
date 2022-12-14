@@ -2,18 +2,24 @@ import torch.optim
 import torch.utils.data
 import torch.nn as nn
 import torchvision.transforms
+import torchvision.transforms.functional
 import torch.nn.functional as F
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 from dataloader.SV6Country import SV6Country
 from dataloader.SV91Country import SV91Country
+from dataloader.SV101Country import SV101Country
 from model.CountryClassifier import CountryClassifier
 from model.CountryClassifierV2 import CountryClassifierV2
+from model.CountryClassifierV3 import CountryClassifierV3
+from model.CountryClassifierV4 import CountryClassifierV4
 
 
 NUM_EPOCHS = 50
+BATCH_SIZE = 16
 USE_CUDA_IF_AVAILABLE = True
-MODEL = CountryClassifierV2
+MODEL = CountryClassifierV3
 
 if torch.cuda.is_available():
     print('GPU is available with the following device: {}'.format(torch.cuda.get_device_name()))
@@ -24,58 +30,76 @@ device = torch.device('cuda' if USE_CUDA_IF_AVAILABLE and torch.cuda.is_availabl
 print('The model will run with {}'.format(device))
 
 
+def get_description(epoch, train_total_loss, train_correct, num_samples):
+    return f"Epoch {epoch + 1}/{NUM_EPOCHS} " \
+           f"- loss: {(train_total_loss / num_samples if num_samples > 0 else float('inf')):.5f} " \
+           f"- acc: {(100 * train_correct / num_samples if num_samples > 0 else 0):.3f}%"
+
+
 transform = torchvision.transforms.Compose([
-    torchvision.transforms.CenterCrop((400, 640)),
-    torchvision.transforms.Resize((200, 320))
+    torchvision.transforms.CenterCrop((600, 600)),
+    torchvision.transforms.RandomApply(torch.nn.ModuleList([torchvision.transforms.RandomCrop((300, 300))]), p=0.5),
+    torchvision.transforms.Resize((300, 300)),
 ])
+train_data = SV101Country(train=True, transform=transform)
 
-train_data = SV91Country(train=True, transform=transform)
-train_dataloader = torch.utils.data.DataLoader(train_data, batch_size=8)
+train_dataloader = torch.utils.data.DataLoader(train_data, batch_size=BATCH_SIZE)
+test_data = SV101Country(train=False, transform=transform)
 
-test_data = SV91Country(train=False, transform=transform)
-test_dataloader = torch.utils.data.DataLoader(test_data, batch_size=8)
-
+test_dataloader = torch.utils.data.DataLoader(test_data, batch_size=BATCH_SIZE)
 model = MODEL().to(device)
-optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
+
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+
 
 loss = nn.CrossEntropyLoss()
+
 
 for epoch in range(NUM_EPOCHS):
     train_ce_loss = 0
     train_total_loss = 0
-    train_acc = 0
-    for X, target in tqdm(train_dataloader, desc=f'Epoch {epoch + 1}/{NUM_EPOCHS}', unit='batch'):
+    train_correct = 0
+
+    num_samples = 0
+
+    train_loop = tqdm(train_dataloader, desc=get_description(epoch, train_total_loss, train_correct, num_samples), unit='batch', colour='blue')
+    for X, target in train_loop:
         X = X.to(device)
+        # plt.imshow(torchvision.transforms.functional.to_pil_image(X[0]))
+        # plt.show()
         target = target.to(device)
         optimizer.zero_grad()
         Y = model(X)
-        l2_reg_loss = 0 * sum(param.pow(2).sum() for param in model.parameters())
-        # ce_loss = torch.divide(torch.square(Y - F.one_hot(target, num_classes=91)).sum(), len(train_data))
-        ce_loss = loss(Y, target)
+        ce_loss = torch.square(Y - F.one_hot(target, num_classes=101)).sum()
+        # ce_loss = loss(Y, target)
         total_loss = ce_loss
-        train_total_loss += total_loss.item() / len(train_data)
-        train_ce_loss += ce_loss.item() / len(train_data)
-        train_acc += (torch.argmax(Y, dim=1) == target).sum() / len(train_data)
+        train_total_loss += total_loss.item()
+        train_ce_loss += ce_loss.item()
+        train_correct += (torch.argmax(Y, dim=1) == target).sum().item()
+
+        num_samples += X.size(dim=0)
+
+        train_loop.set_description(get_description(epoch, train_total_loss, train_correct, num_samples))
         total_loss.backward()
         optimizer.step()
 
-    torch.save(model.state_dict(), f'snapshots/model_91country_ce_lr3e-4_epoch{epoch+1}')
+    torch.save(model.state_dict(), f'snapshots/model_101country_mse_v3_lr1e-3_epoch{epoch+1}')
 
-    test_loss = 0
-    test_acc = 0
-    for step, (X, target) in enumerate(test_dataloader):
-        X = X.to(device)
-        target = target.to(device)
-        Y = model(X)
-        test_loss += loss(Y, F.one_hot(target, num_classes=91)) / len(test_data)
-        test_acc += (torch.argmax(Y, dim=1) == target).sum() / len(test_data)
+    # test_loss = 0
+    # test_acc = 0
+    # for step, (X, target) in enumerate(test_dataloader):
+    #     X = X.to(device)
+    #     target = target.to(device)
+    #     Y = model(X)
+    #     test_loss += loss(Y, F.one_hot(target, num_classes=91)) / len(test_data)
+    #     test_acc += (torch.argmax(Y, dim=1) == target).sum() / len(test_data)
 
 
-    print(f'Train total loss: {train_total_loss}')
-    print(f'Train loss: {train_ce_loss}')
-    print(f'Train accuracy: {train_acc}')
-    print(f'Test loss: {test_loss}')
-    print(f'Test accuracy: {test_acc}')
+    print(f'Train total loss: {(train_total_loss / len(train_data)):.5f}')
+    print(f'Train loss: {(train_ce_loss / len(train_data)):.5f}')
+    print(f'Train accuracy: {(100 * train_correct / len(train_data)):.3f}')
+    # print(f'Test loss: {test_loss}')
+    # print(f'Test accuracy: {test_acc}')
 
 
 
