@@ -55,7 +55,7 @@ test_data = SV101CountryPanorama(train=False)
 test_dataloader = torch.utils.data.DataLoader(test_data, batch_size=BATCH_SIZE)
 model = MODEL().to(device)
 
-optimizer = torch.optim.Adam(model.parameters(), lr=3e-5, weight_decay=1e-2)
+optimizer = torch.optim.Adam(model.parameters(), lr=3e-5, weight_decay=1e-3)
 
 
 loss = nn.CrossEntropyLoss()
@@ -89,7 +89,7 @@ for epoch in range(NUM_EPOCHS):
         total_loss.backward()
         optimizer.step()
 
-    torch.save(model.state_dict(), f'snapshots/model_101country_mse_panorama_v5_lr3e-5_wd1e-2_epoch{epoch+1}')
+    torch.save(model.state_dict(), f'snapshots/model_101country_mse_panorama_v5_lr3e-5_wd1e-3_epoch{epoch+1}')
 
     # test_loss = 0
     # test_acc = 0
