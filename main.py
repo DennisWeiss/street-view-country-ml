@@ -17,6 +17,7 @@ from model.CountryClassifierV2 import CountryClassifierV2
 from model.CountryClassifierV3 import CountryClassifierV3
 from model.CountryClassifierV3_1 import CountryClassifierV3_1
 from model.CountryClassifierV4 import CountryClassifierV4
+from model.CountryClassifierPanoramaV5 import CountryClassifierPanoramaV5
 
 
 NUM_EPOCHS = 50
@@ -24,7 +25,7 @@ BATCH_SIZE = 8
 USE_CUDA_IF_AVAILABLE = True
 
 
-MODEL = CountryClassifierPanoramaV4
+MODEL = CountryClassifierPanoramaV5
 
 if torch.cuda.is_available():
     print('GPU is available with the following device: {}'.format(torch.cuda.get_device_name()))
@@ -54,7 +55,7 @@ test_data = SV101CountryPanorama(train=False)
 test_dataloader = torch.utils.data.DataLoader(test_data, batch_size=BATCH_SIZE)
 model = MODEL().to(device)
 
-optimizer = torch.optim.Adam(model.parameters(), lr=1e-5)
+optimizer = torch.optim.Adam(model.parameters(), lr=3e-5, weight_decay=1e-2)
 
 
 loss = nn.CrossEntropyLoss()
@@ -88,7 +89,7 @@ for epoch in range(NUM_EPOCHS):
         total_loss.backward()
         optimizer.step()
 
-    torch.save(model.state_dict(), f'snapshots/model_101country_mse_panorama_v4_lr1e-5_epoch{epoch+1}')
+    torch.save(model.state_dict(), f'snapshots/model_101country_mse_panorama_v5_lr3e-5_wd1e-2_epoch{epoch+1}')
 
     # test_loss = 0
     # test_acc = 0
