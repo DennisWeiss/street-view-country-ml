@@ -18,8 +18,6 @@ from model.CountryClassifierV3 import CountryClassifierV3
 from model.CountryClassifierV3_1 import CountryClassifierV3_1
 from model.CountryClassifierV4 import CountryClassifierV4
 
-from use_pretrained_model import load_imagenet_vgg13
-
 
 NUM_EPOCHS = 50
 BATCH_SIZE = 8
