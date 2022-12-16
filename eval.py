@@ -3,11 +3,15 @@ import torchvision
 import torch.utils.data
 import torchvision.transforms.functional as F
 import matplotlib.pyplot as plt
+
+from dataloader.SV101Country import SV101Country
 from model.CountryClassifier import CountryClassifier
 from dataloader.SV6Country import SV6Country
 from dataloader.SV91Country import SV91Country
 from model.CountryClassifierV2 import CountryClassifierV2
 from model.CountryClassifierV3 import CountryClassifierV3
+from model.CountryClassifierV3_1 import CountryClassifierV3_1
+from model.CountryClassifierV4 import CountryClassifierV4
 
 USE_CUDA_IF_AVAILABLE = True
 
@@ -22,24 +26,122 @@ print('The model will run with {}'.format(device))
 torch.set_printoptions(precision=1, sci_mode=False)
 
 
-countries = ['ALB', 'ASM', 'AND', 'ARG', 'AUS', 'BGD', 'BEL', 'BMU', 'BTN', 'BOL', 'BWA', 'BRA', 'IOT', 'BGR',
-  'KHM', 'CAN', 'CHL', 'COL', 'HRV', 'CUW', 'CZE', 'DNK', 'DOM', 'ECU', 'EST', 'SWZ', 'FRO', 'FIN', 'FRA', 'DEU', 'GHA',
-  'GIB', 'GRC', 'GRL', 'HKG', 'ITA', 'JPN', 'JEY', 'JOR', 'KEN', 'KOR', 'KGZ', 'LVA', 'LSO', 'LTU', 'LUX', 'MAC', 'MYS',
-  'MLT', 'MEX', 'MCO', 'MNG', 'NLD', 'NZL', 'NGA', 'MKD', 'MNP', 'NOR', 'PSE', 'PER', 'PHL', 'PCN', 'POL', 'PRT', 'PRI',
-  'ROU', 'RUS', 'SPM', 'SMR', 'SEN', 'SRB', 'SGP', 'SVK', 'SVN', 'ZAF', 'SGS', 'ESP', 'LKA', 'SWE', 'CHE', 'TWN', 'THA',
-  'TUN', 'TUR', 'UGA', 'UKR', 'ARE', 'GBR', 'USA', 'VIR', 'URY']
+countries = [
+    'ALB',
+    'ASM',
+    'AND',
+    'ARG',
+    'AUS',
+    'BGD',
+    'BEL',
+    'BMU',
+    'BTN',
+    'BOL',
+    'BWA',
+    'BRA',
+    'IOT',
+    'BGR',
+    'KHM',
+    'CAN',
+    'CHL',
+    'COL',
+    'HRV',
+    'CUW',
+    'CZE',
+    'DNK',
+    'DOM',
+    'ECU',
+    'EST',
+    'SWZ',
+    'FRO',
+    'FIN',
+    'FRA',
+    'DEU',
+    'GHA',
+    'GIB',
+    'GRC',
+    'GRL',
+    'GTM',
+    'HKG',
+    'HUN',
+    'ISL',
+    'IND',
+    'IDN',
+    'IRL',
+    'IMN',
+    'ISR',
+    'ITA',
+    'JPN',
+    'JEY',
+    'JOR',
+    'KEN',
+    'KOR',
+    'KGZ',
+    'LVA',
+    'LSO',
+    'LTU',
+    'LUX',
+    'MAC',
+    'MYS',
+    'MLT',
+    'MEX',
+    'MCO',
+    'MNG',
+    'MNE',
+    'NLD',
+    'NZL',
+    'NGA',
+    'MKD',
+    'MNP',
+    'NOR',
+    'PSE',
+    'PER',
+    'PHL',
+    'PCN',
+    'POL',
+    'PRT',
+    'PRI',
+    'QAT',
+    'ROU',
+    'RUS',
+    'SPM',
+    'SMR',
+    'SEN',
+    'SRB',
+    'SGP',
+    'SVK',
+    'SVN',
+    'ZAF',
+    'SGS',
+    'ESP',
+    'LKA',
+    'SWE',
+    'CHE',
+    'TWN',
+    'THA',
+    'TUN',
+    'TUR',
+    'UGA',
+    'UKR',
+    'ARE',
+    'GBR',
+    'USA',
+    'VIR',
+    'URY'
+]
 
 transform = torchvision.transforms.Compose([
-    torchvision.transforms.CenterCrop((400, 640)),
-    # torchvision.transforms.Resize((200, 320))
+    torchvision.transforms.CenterCrop((600, 600)),
+    torchvision.transforms.Resize((300, 300))
 ])
 
-model = CountryClassifierV3().to(device)
-model.load_state_dict(torch.load('snapshots/model_91country_ce_v3_lr3e-4_epoch25'))
+model = CountryClassifierV4().to(device)
+model.load_state_dict(torch.load('snapshots/model_101country_mse_v4_lr1e-5_epoch30'))
+model.eval()
 
-data = torch.utils.data.Subset(SV91Country(train=False, transform=transform), list(range(500, 508)))
+data = torch.utils.data.Subset(SV101Country(train=False, transform=transform), list(range(748, 756)))
 # data = SV91Country(train=False, transform=transform)
-data_loader = torch.utils.data.DataLoader(data, batch_size=16)
+data_loader = torch.utils.data.DataLoader(data, batch_size=8)
 
 
 def show_best_estimates(y):

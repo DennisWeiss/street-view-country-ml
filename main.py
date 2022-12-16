@@ -7,19 +7,26 @@ import torch.nn.functional as F
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 
+from dataloader.SV101CountryPanorama import SV101CountryPanorama
 from dataloader.SV6Country import SV6Country
 from dataloader.SV91Country import SV91Country
 from dataloader.SV101Country import SV101Country
+from model.CountryClassifierPanoramaV4 import CountryClassifierPanoramaV4
 from model.CountryClassifier import CountryClassifier
 from model.CountryClassifierV2 import CountryClassifierV2
 from model.CountryClassifierV3 import CountryClassifierV3
+from model.CountryClassifierV3_1 import CountryClassifierV3_1
 from model.CountryClassifierV4 import CountryClassifierV4
+
+from use_pretrained_model import load_imagenet_vgg13
 
 
 NUM_EPOCHS = 50
-BATCH_SIZE = 16
+BATCH_SIZE = 8
 USE_CUDA_IF_AVAILABLE = True
-MODEL = CountryClassifierV3
+
+
+MODEL = CountryClassifierPanoramaV4
 
 if torch.cuda.is_available():
     print('GPU is available with the following device: {}'.format(torch.cuda.get_device_name()))
@@ -38,18 +45,18 @@ def get_description(epoch, train_total_loss, train_correct, num_samples):
 
 transform = torchvision.transforms.Compose([
     torchvision.transforms.CenterCrop((600, 600)),
-    torchvision.transforms.RandomApply(torch.nn.ModuleList([torchvision.transforms.RandomCrop((300, 300))]), p=0.5),
-    torchvision.transforms.Resize((300, 300)),
+    # torchvision.transforms.RandomApply(torch.nn.ModuleList([torchvision.transforms.RandomCrop((300, 300))]), p=0.5),
+    torchvision.transforms.Resize((300, 300))
 ])
-train_data = SV101Country(train=True, transform=transform)
+train_data = SV101CountryPanorama(train=True)
 
 train_dataloader = torch.utils.data.DataLoader(train_data, batch_size=BATCH_SIZE)
-test_data = SV101Country(train=False, transform=transform)
+test_data = SV101CountryPanorama(train=False)
 
 test_dataloader = torch.utils.data.DataLoader(test_data, batch_size=BATCH_SIZE)
 model = MODEL().to(device)
 
-optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-5)
 
 
 loss = nn.CrossEntropyLoss()
@@ -83,7 +90,7 @@ for epoch in range(NUM_EPOCHS):
         total_loss.backward()
         optimizer.step()
 
-    torch.save(model.state_dict(), f'snapshots/model_101country_mse_v3_lr1e-3_epoch{epoch+1}')
+    torch.save(model.state_dict(), f'snapshots/model_101country_mse_panorama_v4_lr1e-5_epoch{epoch+1}')
 
     # test_loss = 0
     # test_acc = 0

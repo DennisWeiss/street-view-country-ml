@@ -1,9 +1,9 @@
 import torch.nn as nn
 
 
-class CountryClassifierV3(nn.Module):
+class CountryClassifierV3_1(nn.Module):
     def __init__(self):
-        super(CountryClassifierV3, self).__init__()
+        super(CountryClassifierV3_1, self).__init__()
 
         self.model = nn.Sequential(
             nn.Conv2d(in_channels=3, out_channels=32, kernel_size=(6, 6)),  # [3x320x200]
@@ -23,6 +23,8 @@ class CountryClassifierV3(nn.Module):
             nn.ReLU(),
             nn.MaxPool2d(2, 2),  # [48x32x17]
             nn.Flatten(),
+            nn.Linear(512, 512),
+            nn.ReLU(),
             nn.Linear(512, 101),
             nn.Softmax(dim=1)
         )
