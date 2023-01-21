@@ -25,7 +25,7 @@ class SV101Country(Dataset):
         self.path = 'datasets/101country/'
         self.transform = transform
         self.train = train
-        self.total_samples = 23556
+        self.total_samples = 41236
         self.train_split_idx = int(0.9 * self.total_samples)
         locations = open(self.path + 'locations.csv').read().split('\n')
         self.locations = torch.tensor(list(map(lambda location: COUNTRY_TO_IDX[location.split(',')[0]], locations)))

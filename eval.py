@@ -10,6 +10,7 @@ from model.CountryClassifier import CountryClassifier
 from dataloader.SV6Country import SV6Country
 from dataloader.SV91Country import SV91Country
 from model.CountryClassifierPanoramaV4 import CountryClassifierPanoramaV4
+from model.CountryClassifierPanoramaV5 import CountryClassifierPanoramaV5
 from model.CountryClassifierV2 import CountryClassifierV2
 from model.CountryClassifierV3 import CountryClassifierV3
 from model.CountryClassifierV3_1 import CountryClassifierV3_1
@@ -137,8 +138,8 @@ transform = torchvision.transforms.Compose([
     torchvision.transforms.Resize((300, 300))
 ])
 
-model = CountryClassifierPanoramaV4().to(device)
-model.load_state_dict(torch.load('snapshots/model_101country_mse_panorama_v4_lr1e-5_epoch21'))
+model = CountryClassifierPanoramaV5().to(device)
+model.load_state_dict(torch.load('snapshots/model_101country_mse_panorama_v5_lr3e-5_wd1e-3_epoch43'))
 model.eval()
 
 data = torch.utils.data.Subset(SV101CountryPanorama(train=False), list(range(0, 2200)))

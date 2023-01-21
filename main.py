@@ -4,6 +4,7 @@ import torch.nn as nn
 import torchvision.transforms
 import torchvision.transforms.functional
 import torch.nn.functional as F
+from transformers import ViTFeatureExtractor, ViTModel
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 
@@ -13,6 +14,7 @@ from dataloader.SV91Country import SV91Country
 from dataloader.SV101Country import SV101Country
 from model.CountryClassifierPanoramaV4 import CountryClassifierPanoramaV4
 from model.CountryClassifier import CountryClassifier
+from model.CountryClassifierTransformer import CountryClassifierTransformer
 from model.CountryClassifierV2 import CountryClassifierV2
 from model.CountryClassifierV3 import CountryClassifierV3
 from model.CountryClassifierV3_1 import CountryClassifierV3_1
@@ -21,11 +23,10 @@ from model.CountryClassifierPanoramaV5 import CountryClassifierPanoramaV5
 
 
 NUM_EPOCHS = 50
-BATCH_SIZE = 8
+BATCH_SIZE = 4
 USE_CUDA_IF_AVAILABLE = True
 
 
-MODEL = CountryClassifierPanoramaV5
 
 if torch.cuda.is_available():
     print('GPU is available with the following device: {}'.format(torch.cuda.get_device_name()))
@@ -42,24 +43,34 @@ def get_description(epoch, train_total_loss, train_correct, num_samples):
            f"- acc: {(100 * train_correct / num_samples if num_samples > 0 else 0):.3f}%"
 
 
+image_feature_extractor = ViTFeatureExtractor.from_pretrained('google/vit-base-patch16-384')
+
+
+def image_feature_extract(x):
+    result = image_feature_extractor(x, return_tensors="pt").pixel_values
+    return result[0]
+
 transform = torchvision.transforms.Compose([
-    torchvision.transforms.CenterCrop((600, 600)),
-    # torchvision.transforms.RandomApply(torch.nn.ModuleList([torchvision.transforms.RandomCrop((300, 300))]), p=0.5),
-    torchvision.transforms.Resize((300, 300))
+    torchvision.transforms.Lambda(lambda x: torchvision.transforms.functional.crop(x, 0, 13, 614, 614)),
+    torchvision.transforms.Lambda(image_feature_extract),
 ])
-train_data = SV101CountryPanorama(train=True)
 
+train_data = SV101Country(transform=transform, train=True)
 train_dataloader = torch.utils.data.DataLoader(train_data, batch_size=BATCH_SIZE)
-test_data = SV101CountryPanorama(train=False)
 
+test_data = SV101Country(transform=transform, train=False)
 test_dataloader = torch.utils.data.DataLoader(test_data, batch_size=BATCH_SIZE)
-model = MODEL().to(device)
-
-optimizer = torch.optim.Adam(model.parameters(), lr=3e-5, weight_decay=1e-3)
-
 
 loss = nn.CrossEntropyLoss()
 
+model = CountryClassifierTransformer().to(device)
+
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=0)
+count = 0
+for param in model.parameters():
+    count += torch.numel(param)
+
+print(count)
 
 for epoch in range(NUM_EPOCHS):
     train_ce_loss = 0
@@ -71,11 +82,13 @@ for epoch in range(NUM_EPOCHS):
     train_loop = tqdm(train_dataloader, desc=get_description(epoch, train_total_loss, train_correct, num_samples), unit='batch', colour='blue')
     for X, target in train_loop:
         X = X.to(device)
-        # plt.imshow(torchvision.transforms.functional.to_pil_image(X[0]))
-        # plt.show()
-        target = target.to(device)
+
         optimizer.zero_grad()
+
         Y = model(X)
+
+        target = target.to(device)
+
         ce_loss = torch.square(Y - F.one_hot(target, num_classes=101)).sum()
         # ce_loss = loss(Y, target)
         total_loss = ce_loss
@@ -89,7 +102,7 @@ for epoch in range(NUM_EPOCHS):
         total_loss.backward()
         optimizer.step()
 
-    torch.save(model.state_dict(), f'snapshots/model_101country_mse_panorama_v5_lr3e-5_wd1e-3_epoch{epoch+1}')
+    torch.save(model.state_dict(), f'snapshots/model_101country_mse_lr3e-5_wd1e-3_epoch{epoch+1}')
 
     # test_loss = 0
     # test_acc = 0
