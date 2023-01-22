@@ -16,6 +16,7 @@ from dataloader.SV91Country import SV91Country
 from dataloader.SV101Country import SV101Country
 from model.CountryClassifierPanoramaV4 import CountryClassifierPanoramaV4
 from model.CountryClassifier import CountryClassifier
+from model.CountryClassifierProbing import CountryClassifierProbing
 from model.CountryClassifierTransformer import CountryClassifierTransformer
 from model.CountryClassifierV2 import CountryClassifierV2
 from model.CountryClassifierV3 import CountryClassifierV3
@@ -26,7 +27,7 @@ from model.CIFAR10Classifier import CIFAR10Classifier
 
 
 NUM_EPOCHS = 50
-BATCH_SIZE = 2
+BATCH_SIZE = 8
 USE_CUDA_IF_AVAILABLE = True
 
 
@@ -61,27 +62,29 @@ transform = torchvision.transforms.Compose([
 #     torchvision.transforms.Lambda(image_feature_extract),
 # ])
 
-train_data = SV101CountryPanoramaSeparate(transform=transform, train=True)
+train_data = SV101Country(transform=transform, train=True)
 # train_data = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)
 train_dataloader = torch.utils.data.DataLoader(train_data, batch_size=BATCH_SIZE)
 
-test_data = SV101CountryPanoramaSeparate(transform=transform, train=False)
+test_data = SV101Country(transform=transform, train=False)
 # test_data = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform)
 test_dataloader = torch.utils.data.DataLoader(test_data, batch_size=1)
 
 loss_fn = nn.CrossEntropyLoss()
 
 model = CountryClassifierTransformer().to(device)
-# model.load_state_dict(torch.load('snapshots/model_street_view_epoch3'))
+model.load_state_dict(torch.load('snapshots/model_street_view_probing_epoch5'))
 
-optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=0)
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-5, weight_decay=0)
+# optimizer.load_state_dict(torch.load('snapshots/model_street_view_probing_optimizer_epoch3'))
+
 count = 0
 for param in model.parameters():
     count += torch.numel(param)
 
 print(count)
 
-for epoch in range(NUM_EPOCHS):
+for epoch in range(3, NUM_EPOCHS):
     train_loss = 0
     train_correct = 0
 
@@ -90,31 +93,28 @@ for epoch in range(NUM_EPOCHS):
     model.train()
 
     train_loop = tqdm(train_dataloader, desc=get_description(epoch, len(train_data) * train_loss / num_samples if num_samples > 0 else Infinity, train_correct / num_samples if num_samples > 0 else 0), unit='batch', colour='blue')
-    for (X0, X1, X2, X3), target in train_loop:
-        X0 = X0.to(device)
-        X1 = X1.to(device)
-        X2 = X2.to(device)
-        X3 = X3.to(device)
+    for X, target in train_loop:
+        X = X.to(device)
 
         optimizer.zero_grad()
 
-        Y = model(X0) + model(X1) + model(X2) + model(X3)
+        Y = model(X)
 
         target = target.to(device)
 
-        # ce_loss = torch.square(Y - F.one_hot(target, num_classes=101)).mean()
+        # loss = torch.square(torch.nn.functional.softmax(Y, dim=1) - F.one_hot(target, num_classes=101)).sum(dim=1).mean()
         loss = loss_fn(Y, target)
-        train_loss += X0.size(dim=0) * loss.item() / len(train_data)
+        train_loss += X.size(dim=0) * loss.item() / len(train_data)
         train_correct += (torch.argmax(Y, dim=1) == target).sum().item()
 
-        num_samples += X0.size(dim=0)
+        num_samples += X.size(dim=0)
 
         train_loop.set_description(get_description(epoch, len(train_data) * train_loss / num_samples if num_samples > 0 else Infinity, train_correct / num_samples if num_samples > 0 else 0))
         loss.backward()
         optimizer.step()
 
-    torch.save(model.state_dict(), f'snapshots/model_street_view_panorama_separate_epoch{epoch+1}')
-    torch.save(optimizer.state_dict(), f'snapshots/model_street_view_panorama_separate_optimizer_epoch{epoch+1}')
+    torch.save(model.state_dict(), f'snapshots/model_street_view_probing_epoch{epoch+1}')
+    torch.save(optimizer.state_dict(), f'snapshots/model_street_view_probing_optimizer_epoch{epoch+1}')
 
     # torch.cuda.empty_cache()
 

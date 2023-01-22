@@ -12,6 +12,7 @@ from dataloader.SV6Country import SV6Country
 from dataloader.SV91Country import SV91Country
 from model.CountryClassifierPanoramaV4 import CountryClassifierPanoramaV4
 from model.CountryClassifierPanoramaV5 import CountryClassifierPanoramaV5
+from model.CountryClassifierProbing import CountryClassifierProbing
 from model.CountryClassifierTransformer import CountryClassifierTransformer
 from model.CountryClassifierV2 import CountryClassifierV2
 from model.CountryClassifierV3 import CountryClassifierV3
@@ -157,8 +158,8 @@ model = CountryClassifierTransformer().to(device)
 model.load_state_dict(torch.load('snapshots/model_street_view_epoch5'))
 model.eval()
 
-start_index = 1080
-n_samples = 8
+start_index = 1376
+n_samples = 4
 
 indices = range(start_index, start_index + n_samples)
 
@@ -186,12 +187,23 @@ for step, (X, target) in enumerate(data_vanilla_loader):
 for step, (X, target) in enumerate(data_loader):
     X = X.to(device)
     target = target.to(device)
-    Y = model(X)
-    test_acc += (torch.argmax(Y, dim=1) == target).sum() / len(data)
+    p0 = torch.nn.functional.softmax(model(X[0].reshape((1, X.size(dim=1), X.size(dim=2), X.size(dim=3)))), dim=1)
+    p1 = torch.nn.functional.softmax(model(X[1].reshape((1, X.size(dim=1), X.size(dim=2), X.size(dim=3)))), dim=1)
+    p2 = torch.nn.functional.softmax(model(X[2].reshape((1, X.size(dim=1), X.size(dim=2), X.size(dim=3)))), dim=1)
+    p3 = torch.nn.functional.softmax(model(X[3].reshape((1, X.size(dim=1), X.size(dim=2), X.size(dim=3)))), dim=1)
+    Y = [p0, p1, p2, p3]
+    p = p0 * p1 * p2 * p3
+    p = torch.nn.functional.normalize(p, p=1, dim=1)
+    print(countries[torch.argmax(p, dim=1)[0]])
+    for country, certainty in show_best_estimates(p[0])[0:10]:
+        print(f'{country}: {100 * certainty:.1f}%', end=', ')
+    print()
+    print('=================')
+    test_acc += 4 * int(torch.argmax(p, dim=1)[0] == target[0]) / len(data)
     for i in range(X.size(dim=0)):
         print(countries[torch.argmax(Y[i])] + " - " + countries[target[i]])
-        for country, certainty in show_best_estimates(Y[i])[0:10]:
+        for country, certainty in show_best_estimates(Y[i][0])[0:10]:
             print(f'{country}: {100 * certainty:.1f}%', end=', ')
         print()
 
-print(f'Test acc: {test_acc}')
+print(f'Test acc: {(100 * test_acc):.3f}%')
