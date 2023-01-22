@@ -4,6 +4,7 @@ import torch.nn as nn
 import torchvision.transforms
 import torchvision.transforms.functional
 import torch.nn.functional as F
+from numpy import Infinity
 from transformers import ViTFeatureExtractor, ViTModel
 from tqdm import tqdm
 import matplotlib.pyplot as plt
@@ -39,10 +40,8 @@ device = torch.device('cuda' if USE_CUDA_IF_AVAILABLE and torch.cuda.is_availabl
 print('The model will run with {}'.format(device))
 
 
-def get_description(epoch, train_total_loss, train_correct, num_samples):
-    return f"Epoch {epoch + 1}/{NUM_EPOCHS} " \
-           f"- loss: {(train_total_loss / num_samples if num_samples > 0 else float('inf')):.5f} " \
-           f"- acc: {(100 * train_correct / num_samples if num_samples > 0 else 0):.3f}%"
+def get_description(epoch, train_loss, train_acc):
+    return f"Epoch {epoch + 1}/{NUM_EPOCHS} - loss: {train_loss:.5f} - acc: {(100 * train_acc):.3f}%"
 
 
 image_feature_extractor = ViTFeatureExtractor.from_pretrained('google/vit-base-patch16-384')
@@ -70,12 +69,12 @@ test_data = SV101CountryPanoramaSeparate(transform=transform, train=False)
 # test_data = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform)
 test_dataloader = torch.utils.data.DataLoader(test_data, batch_size=1)
 
-loss = nn.CrossEntropyLoss()
+loss_fn = nn.CrossEntropyLoss()
 
 model = CountryClassifierTransformer().to(device)
 # model.load_state_dict(torch.load('snapshots/model_street_view_epoch3'))
 
-optimizer = torch.optim.Adam(model.parameters(), lr=1e-2, weight_decay=0)
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=0)
 count = 0
 for param in model.parameters():
     count += torch.numel(param)
@@ -83,15 +82,14 @@ for param in model.parameters():
 print(count)
 
 for epoch in range(NUM_EPOCHS):
-    train_ce_loss = 0
-    train_total_loss = 0
+    train_loss = 0
     train_correct = 0
 
     num_samples = 0
 
     model.train()
 
-    train_loop = tqdm(train_dataloader, desc=get_description(epoch, train_total_loss, train_correct, num_samples), unit='batch', colour='blue')
+    train_loop = tqdm(train_dataloader, desc=get_description(epoch, len(train_data) * train_loss / num_samples if num_samples > 0 else Infinity, train_correct / num_samples if num_samples > 0 else 0), unit='batch', colour='blue')
     for (X0, X1, X2, X3), target in train_loop:
         X0 = X0.to(device)
         X1 = X1.to(device)
@@ -100,24 +98,24 @@ for epoch in range(NUM_EPOCHS):
 
         optimizer.zero_grad()
 
-        Y = torch.nn.functional.softmax(model(X0) + model(X1) + model(X2) + model(X3), dim=1)
+        Y = model(X0) + model(X1) + model(X2) + model(X3)
 
         target = target.to(device)
 
         # ce_loss = torch.square(Y - F.one_hot(target, num_classes=101)).mean()
-        ce_loss = loss(Y, target)
-        total_loss = ce_loss
-        train_total_loss += total_loss.item()
-        train_ce_loss += ce_loss.item()
+        loss = loss_fn(Y, target)
+        train_loss += X0.size(dim=0) * loss.item() / len(train_data)
         train_correct += (torch.argmax(Y, dim=1) == target).sum().item()
 
         num_samples += X0.size(dim=0)
 
-        train_loop.set_description(get_description(epoch, train_total_loss, train_correct, num_samples))
-        total_loss.backward()
+        train_loop.set_description(get_description(epoch, len(train_data) * train_loss / num_samples if num_samples > 0 else Infinity, train_correct / num_samples if num_samples > 0 else 0))
+        loss.backward()
         optimizer.step()
 
     torch.save(model.state_dict(), f'snapshots/model_street_view_panorama_separate_epoch{epoch+1}')
+    torch.save(optimizer.state_dict(), f'snapshots/model_street_view_panorama_separate_optimizer_epoch{epoch+1}')
+
     # torch.cuda.empty_cache()
 
     # model = model.to('cpu')
@@ -133,9 +131,8 @@ for epoch in range(NUM_EPOCHS):
     #     test_acc += (torch.argmax(Y, dim=1) == target).sum() / len(test_data)
 
 
-    print(f'Train total loss: {(train_total_loss / len(train_data)):.5f}')
-    print(f'Train loss: {(train_ce_loss / len(train_data)):.5f}')
-    print(f'Train accuracy: {(100 * train_correct / len(train_data)):.3f}')
+    print(f'Train loss: {(train_loss):.5f}')
+    print(f'Train accuracy: {(100 * train_correct / len(train_data)):.3f}%')
     # print(f'Test loss: {test_loss}')
     # print(f'Test accuracy: {test_acc}')
 
