@@ -1,23 +1,14 @@
 import torch
 import torch.nn as nn
 import torchvision.transforms.functional as F
-from transformers import ViTModel, ViTFeatureExtractor
-
-import matplotlib.pyplot as plt
-
+from transformers import ViTForImageClassification, ViTFeatureExtractor
 
 
 class CountryClassifierTransformer(nn.Module):
     def __init__(self):
         super(CountryClassifierTransformer, self).__init__()
 
-        self.model = ViTModel.from_pretrained('google/vit-base-patch16-384')
-        self.classifier = torch.nn.Sequential(
-            torch.nn.Linear(768, 101),
-            torch.nn.Softmax(dim=1)
-        )
+        self.model = ViTForImageClassification.from_pretrained('google/vit-base-patch16-384', num_labels=101, ignore_mismatched_sizes=True)
 
     def forward(self, x):
-        x = self.model(x, output_hidden_states=True).hidden_states[-1][:, 0]
-        x = self.classifier(x)
-        return x
+        return self.model(x).logits

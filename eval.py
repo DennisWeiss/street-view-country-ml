@@ -3,6 +3,7 @@ import torchvision
 import torch.utils.data
 import torchvision.transforms.functional as F
 import matplotlib.pyplot as plt
+from transformers import ViTFeatureExtractor
 
 from dataloader.SV101Country import SV101Country
 from dataloader.SV101CountryPanorama import SV101CountryPanorama
@@ -11,6 +12,7 @@ from dataloader.SV6Country import SV6Country
 from dataloader.SV91Country import SV91Country
 from model.CountryClassifierPanoramaV4 import CountryClassifierPanoramaV4
 from model.CountryClassifierPanoramaV5 import CountryClassifierPanoramaV5
+from model.CountryClassifierTransformer import CountryClassifierTransformer
 from model.CountryClassifierV2 import CountryClassifierV2
 from model.CountryClassifierV3 import CountryClassifierV3
 from model.CountryClassifierV3_1 import CountryClassifierV3_1
@@ -133,18 +135,38 @@ countries = [
     'URY'
 ]
 
+
+image_feature_extractor = ViTFeatureExtractor.from_pretrained('google/vit-base-patch16-384')
+
+
+def image_feature_extract(x):
+    result = image_feature_extractor(x, return_tensors="pt").pixel_values
+    return result[0]
+
+
 transform = torchvision.transforms.Compose([
-    torchvision.transforms.CenterCrop((600, 600)),
-    torchvision.transforms.Resize((300, 300))
+    torchvision.transforms.Lambda(lambda x: torchvision.transforms.functional.crop(x, 0, 13, 614, 614)),
+    torchvision.transforms.Lambda(image_feature_extract),
 ])
 
-model = CountryClassifierPanoramaV5().to(device)
-model.load_state_dict(torch.load('snapshots/model_101country_mse_panorama_v5_lr3e-5_wd1e-3_epoch43'))
+transform_vanilla = torchvision.transforms.Compose([
+    torchvision.transforms.Lambda(lambda x: torchvision.transforms.functional.crop(x, 0, 13, 614, 614))
+])
+
+model = CountryClassifierTransformer().to(device)
+model.load_state_dict(torch.load('snapshots/model_street_view_epoch5'))
 model.eval()
 
-data = torch.utils.data.Subset(SV101CountryPanorama(train=False), list(range(0, 2200)))
-# data = SV91Country(train=False, transform=transform)
+start_index = 1080
+n_samples = 8
+
+indices = range(start_index, start_index + n_samples)
+
+data = torch.utils.data.Subset(SV101Country(transform=transform, train=False), indices)
 data_loader = torch.utils.data.DataLoader(data, batch_size=4)
+
+data_vanilla = torch.utils.data.Subset(SV101Country(transform=transform_vanilla, train=False), indices)
+data_vanilla_loader = torch.utils.data.DataLoader(data_vanilla, batch_size=4)
 
 
 def show_best_estimates(y):
@@ -156,17 +178,20 @@ def show_best_estimates(y):
 
 test_acc = 0
 
+for step, (X, target) in enumerate(data_vanilla_loader):
+    for i in range(X.size(dim=0)):
+        plt.imshow(F.to_pil_image(X[i]))
+        plt.show()
+
 for step, (X, target) in enumerate(data_loader):
-    # for i in range(X.size(dim=0)):
-    #     plt.imshow(F.to_pil_image(X[i]))
-    #     plt.show()
     X = X.to(device)
     target = target.to(device)
     Y = model(X)
     test_acc += (torch.argmax(Y, dim=1) == target).sum() / len(data)
-    # for i in range(X.size(dim=0)):
-    #     print(countries[torch.argmax(Y[i])] + " - " + countries[target[i]])
-    #     for country, certainty in show_best_estimates(Y[i])[0:10]:
-    #         print(f'{country}: {100 * certainty:.1f}%')
+    for i in range(X.size(dim=0)):
+        print(countries[torch.argmax(Y[i])] + " - " + countries[target[i]])
+        for country, certainty in show_best_estimates(Y[i])[0:10]:
+            print(f'{country}: {100 * certainty:.1f}%', end=', ')
+        print()
 
 print(f'Test acc: {test_acc}')

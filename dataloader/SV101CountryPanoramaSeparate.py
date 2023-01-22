@@ -4,8 +4,8 @@ from torch.utils.data import Dataset
 import torch.nn.functional as F
 
 
-class SV101CountryPanorama(Dataset):
-    def __init__(self, train=True):
+class SV101CountryPanoramaSeparate(Dataset):
+    def __init__(self, transform, train=True):
         super(Dataset, self).__init__()
 
         COUNTRY_TO_IDX = {"ALB": 0, "ASM": 1, "AND": 2, "ARG": 3, "AUS": 4, "BGD": 5, "BEL": 6, "BMU": 7, "BTN": 8,
@@ -23,13 +23,10 @@ class SV101CountryPanorama(Dataset):
                           "GBR": 97, "USA": 98, "VIR": 99, "URY": 100}
 
         self.path = 'datasets/101country/'
-        self.transform = torchvision.transforms.Compose([
-            torchvision.transforms.CenterCrop((600, 640)),
-            torchvision.transforms.Resize((300, 320))
-        ])
+        self.transform = transform
         self.train = train
         self.total_samples = 41236
-        self.train_split_idx = 4 * int(0.9 * self.total_samples / 4)
+        self.train_split_idx = int(0.9 * self.total_samples) // 4
         locations = open(self.path + 'locations.csv').read().split('\n')
         self.locations = torch.tensor(list(map(lambda location: COUNTRY_TO_IDX[location.split(',')[0]], locations)))
 
@@ -39,9 +36,8 @@ class SV101CountryPanorama(Dataset):
     def __getitem__(self, idx):
         if not self.train:
             idx += self.train_split_idx
-        image0 = self.transform(torchvision.io.read_image(f'{self.path}images/{idx}.jpg') / 255)
-        image1 = self.transform(torchvision.io.read_image(f'{self.path}images/{idx+1+4*(idx//4-(idx+1)//4)}.jpg') / 255)
-        image2 = self.transform(torchvision.io.read_image(f'{self.path}images/{idx+2+4*(idx//4-(idx+2)//4)}.jpg') / 255)
-        image3 = self.transform(torchvision.io.read_image(f'{self.path}images/{idx+3+4*(idx//4-(idx+3)//4)}.jpg') / 255)
-        image = torch.cat((image0, image1, image2, image3), 2)
-        return image, self.locations[idx]
+        image0 = self.transform(torchvision.io.read_image(f'{self.path}images/{4*idx}.jpg') / 255)
+        image1 = self.transform(torchvision.io.read_image(f'{self.path}images/{4*idx+1}.jpg') / 255)
+        image2 = self.transform(torchvision.io.read_image(f'{self.path}images/{4*idx+2}.jpg') / 255)
+        image3 = self.transform(torchvision.io.read_image(f'{self.path}images/{4*idx+3}.jpg') / 255)
+        return (image0, image1, image2, image3), self.locations[idx]
