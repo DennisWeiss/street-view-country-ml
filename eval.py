@@ -155,15 +155,15 @@ transform_vanilla = torchvision.transforms.Compose([
 ])
 
 model = CountryClassifierTransformer().to(device)
-model.load_state_dict(torch.load('snapshots/model_street_view_epoch5'))
+model.load_state_dict(torch.load('snapshots/model_street_view_probing_epoch7'))
 model.eval()
 
-start_index = 1376
+start_index = 1368
 n_samples = 4
 
 indices = range(start_index, start_index + n_samples)
 
-data = torch.utils.data.Subset(SV101Country(transform=transform, train=False), indices)
+data = SV101Country(transform=transform, train=False)
 data_loader = torch.utils.data.DataLoader(data, batch_size=4)
 
 data_vanilla = torch.utils.data.Subset(SV101Country(transform=transform_vanilla, train=False), indices)
@@ -179,10 +179,10 @@ def show_best_estimates(y):
 
 test_acc = 0
 
-for step, (X, target) in enumerate(data_vanilla_loader):
-    for i in range(X.size(dim=0)):
-        plt.imshow(F.to_pil_image(X[i]))
-        plt.show()
+# for step, (X, target) in enumerate(data_vanilla_loader):
+#     for i in range(X.size(dim=0)):
+#         plt.imshow(F.to_pil_image(X[i]))
+#         plt.show()
 
 for step, (X, target) in enumerate(data_loader):
     X = X.to(device)
@@ -194,16 +194,16 @@ for step, (X, target) in enumerate(data_loader):
     Y = [p0, p1, p2, p3]
     p = p0 * p1 * p2 * p3
     p = torch.nn.functional.normalize(p, p=1, dim=1)
-    print(countries[torch.argmax(p, dim=1)[0]])
-    for country, certainty in show_best_estimates(p[0])[0:10]:
-        print(f'{country}: {100 * certainty:.1f}%', end=', ')
-    print()
-    print('=================')
+    # print(countries[torch.argmax(p, dim=1)[0]])
+    # for country, certainty in show_best_estimates(p[0])[0:10]:
+    #     print(f'{country}: {100 * certainty:.1f}%', end=', ')
+    # print()
+    # print('=================')
     test_acc += 4 * int(torch.argmax(p, dim=1)[0] == target[0]) / len(data)
-    for i in range(X.size(dim=0)):
-        print(countries[torch.argmax(Y[i])] + " - " + countries[target[i]])
-        for country, certainty in show_best_estimates(Y[i][0])[0:10]:
-            print(f'{country}: {100 * certainty:.1f}%', end=', ')
-        print()
+    # for i in range(X.size(dim=0)):
+    #     print(countries[torch.argmax(Y[i])] + " - " + countries[target[i]])
+    #     for country, certainty in show_best_estimates(Y[i][0])[0:10]:
+    #         print(f'{country}: {100 * certainty:.1f}%', end=', ')
+    #     print()
 
 print(f'Test acc: {(100 * test_acc):.3f}%')

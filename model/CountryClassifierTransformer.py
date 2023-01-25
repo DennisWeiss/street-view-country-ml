@@ -15,12 +15,15 @@ class CountryClassifierTransformer(nn.Module):
 
         self.model = ViTForImageClassification.from_pretrained('google/vit-base-patch16-384', num_labels=101, ignore_mismatched_sizes=True)
 
-    def forward(self, x):
-        output = self.model(x, output_attentions=True)
+    def forward(self, x, probing=False):
+        if probing:
+            logits = self.model.classifier(self.model(x, output_attentions=True, output_hidden_states=True).hidden_states[-1][:, 0, :].detach())
+        else:
+            logits = self.model(x).logits
         # if not self.training:
         #     for i in range(x.size(dim=0)):
         #         attention_map = output.attentions[-1][i].amax(dim=0)[1:,0].reshape(24, 24).detach().cpu().numpy()
         #         plt.matshow(attention_map)
         #         plt.show()
 
-        return output.logits
+        return logits
