@@ -27,9 +27,10 @@ from model.CIFAR10Classifier import CIFAR10Classifier
 
 
 NUM_EPOCHS = 50
-BATCH_SIZE = 8
+BATCH_SIZE = 6
 USE_CUDA_IF_AVAILABLE = True
 
+PROBING = False
 
 
 if torch.cuda.is_available():
@@ -73,10 +74,12 @@ test_dataloader = torch.utils.data.DataLoader(test_data, batch_size=1)
 loss_fn = nn.CrossEntropyLoss()
 
 model = CountryClassifierTransformer().to(device)
-# model.load_state_dict(torch.load('snapshots/model_street_view_probing_epoch5'))
+if not PROBING:
+    model.load_state_dict(torch.load('snapshots/model_street_view__epoch11'))
 
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-5, weight_decay=0)
-# optimizer.load_state_dict(torch.load('snapshots/model_street_view_probing_optimizer_epoch3'))
+if not PROBING:
+    optimizer.load_state_dict(torch.load('snapshots/model_street_view__optimizer_epoch11'))
 
 count = 0
 for param in model.parameters():
@@ -84,7 +87,7 @@ for param in model.parameters():
 
 print(count)
 
-for epoch in range(NUM_EPOCHS):
+for epoch in range(11, NUM_EPOCHS):
     train_loss = 0
     train_correct = 0
 
@@ -98,7 +101,7 @@ for epoch in range(NUM_EPOCHS):
 
         optimizer.zero_grad()
 
-        Y = model(X, probing=True)
+        Y = model(X, probing=PROBING)
 
         target = target.to(device)
 
@@ -113,8 +116,8 @@ for epoch in range(NUM_EPOCHS):
         loss.backward()
         optimizer.step()
 
-    torch.save(model.state_dict(), f'snapshots/model_street_view_probing_epoch{epoch+1}')
-    torch.save(optimizer.state_dict(), f'snapshots/model_street_view_probing_optimizer_epoch{epoch+1}')
+    torch.save(model.state_dict(), f"snapshots/model_street_view_{'probing' if PROBING else ''}_epoch{epoch+1}")
+    torch.save(optimizer.state_dict(), f"snapshots/model_street_view_{'probing' if PROBING else ''}_optimizer_epoch{epoch+1}")
 
     # torch.cuda.empty_cache()
 

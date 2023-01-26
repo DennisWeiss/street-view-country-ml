@@ -155,14 +155,15 @@ transform_vanilla = torchvision.transforms.Compose([
 ])
 
 model = CountryClassifierTransformer().to(device)
-model.load_state_dict(torch.load('snapshots/model_street_view_probing_epoch7'))
+model.load_state_dict(torch.load('snapshots/model_street_view__epoch11'))
 model.eval()
 
-start_index = 1368
+start_index = 1708
 n_samples = 4
 
 indices = range(start_index, start_index + n_samples)
 
+# data = torch.utils.data.Subset(SV101Country(transform=transform, train=False), indices)
 data = SV101Country(transform=transform, train=False)
 data_loader = torch.utils.data.DataLoader(data, batch_size=4)
 
@@ -187,19 +188,29 @@ test_acc = 0
 for step, (X, target) in enumerate(data_loader):
     X = X.to(device)
     target = target.to(device)
-    p0 = torch.nn.functional.softmax(model(X[0].reshape((1, X.size(dim=1), X.size(dim=2), X.size(dim=3)))), dim=1)
-    p1 = torch.nn.functional.softmax(model(X[1].reshape((1, X.size(dim=1), X.size(dim=2), X.size(dim=3)))), dim=1)
-    p2 = torch.nn.functional.softmax(model(X[2].reshape((1, X.size(dim=1), X.size(dim=2), X.size(dim=3)))), dim=1)
-    p3 = torch.nn.functional.softmax(model(X[3].reshape((1, X.size(dim=1), X.size(dim=2), X.size(dim=3)))), dim=1)
-    Y = [p0, p1, p2, p3]
-    p = p0 * p1 * p2 * p3
-    p = torch.nn.functional.normalize(p, p=1, dim=1)
+
+    # p0 = torch.nn.functional.softmax(model(X[0].reshape((1, X.size(dim=1), X.size(dim=2), X.size(dim=3)))), dim=1)
+    # p1 = torch.nn.functional.softmax(model(X[1].reshape((1, X.size(dim=1), X.size(dim=2), X.size(dim=3)))), dim=1)
+    # p2 = torch.nn.functional.softmax(model(X[2].reshape((1, X.size(dim=1), X.size(dim=2), X.size(dim=3)))), dim=1)
+    # p3 = torch.nn.functional.softmax(model(X[3].reshape((1, X.size(dim=1), X.size(dim=2), X.size(dim=3)))), dim=1)
+    # Y = [p0, p1, p2, p3]
+    # p = p0 * p1 * p2 * p3
+    # p = torch.nn.functional.normalize(p, p=1, dim=1)
+
+    p = torch.nn.functional.softmax(model(X), dim=1)
+
     # print(countries[torch.argmax(p, dim=1)[0]])
-    # for country, certainty in show_best_estimates(p[0])[0:10]:
-    #     print(f'{country}: {100 * certainty:.1f}%', end=', ')
+    for i in range(p.size(dim=0)):
+        for country, certainty in show_best_estimates(p[i])[0:5]:
+            # print(f'{country}: {100 * certainty:.1f}%', end=', ')
+            if country == countries[target[0]]:
+                test_acc += 1 / len(data)
     # print()
     # print('=================')
-    test_acc += 4 * int(torch.argmax(p, dim=1)[0] == target[0]) / len(data)
+
+    # test_acc += 4 * int(torch.argmax(p, dim=1)[0] == target[0]) / len(data)
+    # test_acc += (torch.argmax(p, dim=1) == target).sum() / len(data)
+
     # for i in range(X.size(dim=0)):
     #     print(countries[torch.argmax(Y[i])] + " - " + countries[target[i]])
     #     for country, certainty in show_best_estimates(Y[i][0])[0:10]:
